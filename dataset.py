@@ -20,7 +20,7 @@ class VideoDataset(Dataset):
                 self.fnames.append(os.path.join(folder, label, fname))
                 labels.append(label)
         self.label2index = {label:index for index, label in enumerate(sorted(set(labels)))}
-        self.label_array = np.array([self.label2index[label] for label in labels], dtype=np.int)
+        self.label_array = np.array([self.label2index[label] for label in labels], dtype=np.long)
 
         if split != 0.0:
             x_train, x_valid, y_train, y_valid = train_test_split(self.fnames, self.label_array, test_size=split,
@@ -31,6 +31,7 @@ class VideoDataset(Dataset):
             elif mode == 'valid':
                 self.fnames = x_valid
                 self.label_array = y_valid
+        self.label_array = self.label_array.astype(np.long)
 
         print(f'{mode} {self.__len__()} videos')
 

@@ -34,12 +34,12 @@ def main():
     )
     parser.add_argument(
         '--batch_size',
-        default=4,
+        default=2,
         type=int
     )
     parser.add_argument(
         '--batch_multiplier',
-        default=8,
+        default=16,
         type=int
     )
     parser.add_argument(
@@ -124,16 +124,16 @@ def main():
     scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
     criterion = nn.CrossEntropyLoss()
 
-    for epoch in tqdm(range(args.epochs)):
+    for epoch in tqdm(range(args.epochs), ascii=True):
         model.train()
         count = 0
         training_loss = 0.0
         multiplier_count = 0
         training_accuracy = 0
         training_5_accuracy = 0
-        for inputs, targets in tqdm(train_dataloader):
+        for inputs, targets in tqdm(train_dataloader, ascii=True):
             inputs = inputs.to(device)
-            targets = targets.to(device)
+            targets = targets.long().to(device)
             if multiplier_count == 0:
                 optimizer.step()
                 optimizer.zero_grad()
@@ -168,10 +168,10 @@ def main():
         with torch.no_grad():
             for inputs, targets in tqdm(valid_dataloader):
                 inputs = inputs.to(device)
-                targets = targets.to(device)
+                targets = targets.long().to(device)
 
                 outputs = model(inputs)
-                loss = criterion(outputs, targets) / args.batch_multiplier
+                loss = criterion(outputs, targets)
 
                 validation_loss += loss.item()
                 outputs = outputs.cpu().detach().numpy()

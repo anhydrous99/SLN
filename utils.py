@@ -1,6 +1,5 @@
 from torchvision.transforms import ToTensor
 from PIL import Image
-from pathlib import Path
 import numpy as np
 import torch
 import os
@@ -48,8 +47,8 @@ def isfloat(value):
         return False
 
 
-def print_values(mode, loss, accuracy, top_5_accuracy):
-    print(f'm: {mode} l: {loss} a: {accuracy} a5: {top_5_accuracy}')
+def print_values(mode, loss, acc, top_5_accuracy):
+    print(f'm: {mode} l: {loss} a: {acc} a5: {top_5_accuracy}')
 
 
 def accuracy(output, target, k):
