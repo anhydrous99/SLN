@@ -15,18 +15,30 @@ from tqdm import tqdm
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     parser.add_argument(
         '-p',
         '--video_path',
-        help='Path to training videos (in JPEG form)',
+        help='Path to training videos (in JPEG form) (Required)',
         required=True
     )
     parser.add_argument(
         '-v',
         '--validation',
-        help='Path to validation videos (in JPEG form) or a percentage of training videos to use between 0.0 and 1.0',
+        help='Path to validation videos (in JPEG form) or a percentage of training videos to use between 0.0 and 1.0 (Required)',
         required=True
+    )
+    parser.add_argument(
+        '--model_name',
+        help='Name of model (Required)',
+        required=True
+    )
+    parser.add_argument(
+        '--model_output',
+        help='The output model type, (linear, ...)',
+        default='linear'
     )
     parser.add_argument(
         '--tensorboard_dir',
@@ -36,12 +48,14 @@ def main():
     parser.add_argument(
         '--batch_size',
         default=4,
-        type=int
+        type=int,
+        help='The batch size when training'
     )
     parser.add_argument(
         '--batch_multiplier',
         default=8,
-        type=int
+        type=int,
+        help='Number of times to accumulate gradients'
     )
     parser.add_argument(
         '--num_workers',
@@ -57,29 +71,24 @@ def main():
     parser.add_argument(
         '--epochs',
         default=120,
-        type=int
+        type=int,
+        help='Number of times to train over the data'
     )
     parser.add_argument(
-        '--log_interval',
-        default=10,
-        type=int
-    )
-    parser.add_argument(
-        '--input_pixles',
+        '--input_pixels',
         default=112,
-        type=int
+        type=int,
+        help='The number of side input size'
     )
     parser.add_argument(
         '-c',
         '--checkpoint_dir',
-        default='./model/'
+        default='./model/',
+        help='Path to saved checkpoint models'
     )
     parser.add_argument(
-        '--model_name',
-        required=True
-    )
-    parser.add_argument(
-        '--pretrained'
+        '--pretrained',
+        help='Path to pretrained model'
     )
     args = parser.parse_args()
     video_path = args.video_path
@@ -100,14 +109,14 @@ def main():
 
     print('Loading Dataset')
     train_transforms = Compose([
-        RandomResizeVideo((128, 160)) if args.input_pixles == 112 else RandomResizeVideo((256, 320)),
+        RandomResizeVideo((128, 160)) if args.input_pixels == 112 else RandomResizeVideo((256, 320)),
         tv.RandomHorizontalFlipVideo(0.5),
-        tv.RandomCropVideo(args.input_pixles),
+        tv.RandomCropVideo(args.input_pixels),
         tv.NormalizeVideo((128.0, 128.0, 128.0), (128.0, 128.0, 128.0))
     ])
     valid_transforms = Compose([
-        RandomResizeVideo((128, 160)) if args.input_pixles == 112 else RandomResizeVideo((256, 320)),
-        tv.CenterCropVideo(args.input_pixles),
+        RandomResizeVideo((128, 160)) if args.input_pixels == 112 else RandomResizeVideo((256, 320)),
+        tv.CenterCropVideo(args.input_pixels),
         tv.NormalizeVideo((128.0, 128.0, 128.0), (128.0, 128.0, 128.0))
     ])
 
@@ -119,9 +128,18 @@ def main():
     valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     print('Load Model')
-    model = SlowFast(class_num=train_dataset.num_classes()).to(device)
+    model = SlowFast().to(device)
+    if args.pretrained is not None:
+        model.load_state_dict(torch.load(args.pretrained))
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.005, momentum=0.9, weight_decay=1e-4)
+    if args.model_output == 'linear':
+        model_out = nn.Linear(2304, train_dataset.num_classes())
+    else:
+        raise ValueError('Invalid model_output')
+
+    model_out = model_out.to(device)
+    optimizer = torch.optim.SGD(list(model.parameters()) + list(model_out.parameters()), lr=0.005, momentum=0.9,
+                                weight_decay=1e-4)
     scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
     criterion = nn.CrossEntropyLoss()
 
@@ -140,12 +158,17 @@ def main():
                 optimizer.zero_grad()
                 multiplier_count = args.batch_multiplier
 
-            outputs = model(inputs)
+            logits = model(inputs)
+            if args.model_output == 'linear':
+                outputs = model_out(logits)
+            else:
+                outputs = model_out(logits, targets)
+
             loss = criterion(outputs, targets) / args.batch_multiplier
             loss.backward()
             multiplier_count -= 1
 
-            training_loss += loss.item() / targets.size(0)
+            training_loss += loss.item() * args.batch_multiplier / targets.size(0)
             outputs = outputs.cpu().detach().numpy()
             targets = targets.cpu().detach().numpy()
             training_5_accuracy += accuracy(outputs, targets, 5)
@@ -171,7 +194,12 @@ def main():
                 inputs = inputs.to(device)
                 targets = targets.long().to(device)
 
-                outputs = model(inputs)
+                logits = model(inputs)
+                if args.model_output == 'linear':
+                    outputs = model_out(logits)
+                else:
+                    outputs = model_out(logits, targets)
+
                 loss = criterion(outputs, targets)
 
                 validation_loss += loss.item()

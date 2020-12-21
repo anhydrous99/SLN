@@ -84,7 +84,7 @@ class SlowFast(nn.Module):
         self.slow_avgpool = nn.AdaptiveAvgPool3d(1)
 
         self.dp = nn.Dropout3d(dropout)
-        self.fc = nn.Linear(2304, class_num, bias=False)
+        #self.fc = nn.Linear(2304, class_num, bias=False)
 
     def forward(self, input):
         fast_x = input[:, :, ::2]
@@ -119,5 +119,4 @@ class SlowFast(nn.Module):
 
         x = torch.cat([slow_x, fast_x], dim=1)
         x = self.dp(x)
-        x = self.fc(x)
         return x
