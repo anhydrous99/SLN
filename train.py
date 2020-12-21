@@ -1,3 +1,4 @@
+import os
 import torch
 import argparse
 import torch.nn as nn
@@ -34,12 +35,12 @@ def main():
     )
     parser.add_argument(
         '--batch_size',
-        default=2,
+        default=4,
         type=int
     )
     parser.add_argument(
         '--batch_multiplier',
-        default=16,
+        default=8,
         type=int
     )
     parser.add_argument(
@@ -92,7 +93,7 @@ def main():
     else:
         validation = args.validation
 
-    writer = SummaryWriter(args.tensorboard_dir)
+    writer = SummaryWriter(os.path.join(args.tensorboard_dir, args.model_name))
     device = torch.device('cpu')
     if torch.cuda.is_available():
         device = torch.device('cuda')
@@ -120,7 +121,7 @@ def main():
     print('Load Model')
     model = SlowFast(class_num=train_dataset.num_classes()).to(device)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.005, momentum=0.9, weight_decay=1e-4)
     scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
     criterion = nn.CrossEntropyLoss()
 
