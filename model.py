@@ -57,7 +57,7 @@ class ResidualBlock(nn.Module):
 
 
 class SlowFast(nn.Module):
-    def __init__(self, layers=None, class_num=10, dropout=0.5):
+    def __init__(self, layers=None, dropout=0.5):
         super(SlowFast, self).__init__()
         if layers is None:
             layers = [3, 4, 6, 3]

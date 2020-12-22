@@ -127,6 +127,9 @@ def main():
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
+    print(f'Train Classes {train_dataset.num_classes()}')
+    print(f'Validation Classes {valid_dataset.num_classes()}')
+
     print('Load Model')
     model = SlowFast().to(device)
     if args.pretrained is not None:
@@ -143,14 +146,14 @@ def main():
     scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
     criterion = nn.CrossEntropyLoss()
 
-    for epoch in tqdm(range(args.epochs), ascii=True):
+    for epoch in tqdm(range(args.epochs)):
         model.train()
         count = 0
         training_loss = 0.0
         multiplier_count = 0
         training_accuracy = 0
         training_5_accuracy = 0
-        for inputs, targets in tqdm(train_dataloader, ascii=True):
+        for inputs, targets in tqdm(train_dataloader):
             inputs = inputs.to(device)
             targets = targets.long().to(device)
             if multiplier_count == 0:
@@ -202,7 +205,7 @@ def main():
 
                 loss = criterion(outputs, targets)
 
-                validation_loss += loss.item()
+                validation_loss += loss.item() / targets.size(0)
                 outputs = outputs.cpu().detach().numpy()
                 targets = targets.cpu().detach().numpy()
                 validation_5_accuracy += accuracy(outputs, targets, 5)
