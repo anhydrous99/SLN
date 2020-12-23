@@ -2,7 +2,6 @@ import os
 import torch
 import argparse
 import torch.nn as nn
-from apex import amp
 from model import SlowFast
 from dataset import VideoDataset
 from torch.optim.lr_scheduler import StepLR
@@ -48,13 +47,13 @@ def main():
     )
     parser.add_argument(
         '--batch_size',
-        default=8,
+        default=4,
         type=int,
         help='The batch size when training'
     )
     parser.add_argument(
         '--batch_multiplier',
-        default=4,
+        default=8,
         type=int,
         help='Number of times to accumulate gradients'
     )
@@ -150,7 +149,6 @@ def main():
     model_out = model_out.to(device)
     optimizer = torch.optim.SGD(list(model.parameters()) + list(model_out.parameters()), lr=0.005, momentum=0.9,
                                 weight_decay=1e-4)
-    [model, model_out], optimizer = amp.initialize([model, model_out], optimizer)
     scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
     criterion = nn.CrossEntropyLoss()
 
@@ -165,7 +163,7 @@ def main():
             scheduler
         )
 
-    for epoch in tqdm(range(epoch, args.epochs)):
+    for epoch in tqdm(range(epoch, args.epochs), initial=epoch, total=args.epochs):
         model.train()
         count = 0
         training_loss = 0.0
@@ -187,8 +185,8 @@ def main():
                 outputs = model_out(logits, targets)
 
             loss = criterion(outputs, targets) / args.batch_multiplier
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
+            loss.backward()
+
             multiplier_count -= 1
 
             training_loss += loss.item() * args.batch_multiplier / targets.size(0)

@@ -77,11 +77,10 @@ def load_checkpoint(directory, name, n_epochs, model, model_out, optimizer, sche
         path = os.path.join(directory, f'{name}_{epoch:04d}.pt')
         if os.path.exists(path):
             break
-    if path is not None:
-        return None
+    print(f'Found checkpoint {path}. Loading.')
     di = torch.load(path)
     model.load_state_dict(di['model'])
     model_out.load_state_dict(di['model_out'])
     optimizer.load_state_dict(di['optimizer'])
     scheduler.load_state_dict(di['scheduler'])
-    return model, model_out, optimizer, scheduler, epoch
+    return model, model_out, optimizer, scheduler, epoch + 1
