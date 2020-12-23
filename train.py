@@ -5,7 +5,7 @@ import torch.nn as nn
 from model import SlowFast
 from dataset import VideoDataset
 from torch.optim.lr_scheduler import StepLR
-from utils import isfloat, print_values, accuracy, checkpoint
+from utils import isfloat, print_values, accuracy, checkpoint, load_checkpoint
 from torch.utils.data import DataLoader
 from transforms import RandomResizeVideo
 from torchvision.transforms import Compose
@@ -90,6 +90,11 @@ def main():
         '--pretrained',
         help='Path to pretrained model'
     )
+    parser.add_argument(
+        '--load_checkpoint',
+        help='To load checkpoint',
+        action='store_true'
+    )
     args = parser.parse_args()
     video_path = args.video_path
     batch_size = args.batch_size
@@ -131,6 +136,7 @@ def main():
     print(f'Validation Classes {valid_dataset.num_classes()}')
 
     print('Load Model')
+    epoch = 0
     model = SlowFast().to(device)
     if args.pretrained is not None:
         model.load_state_dict(torch.load(args.pretrained))
@@ -146,7 +152,18 @@ def main():
     scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
     criterion = nn.CrossEntropyLoss()
 
-    for epoch in tqdm(range(args.epochs)):
+    if args.load_checkpoint:
+        model, model_out, optimizer, scheduler, epoch = load_checkpoint(
+            args.checkpoint_dir,
+            args.model_name,
+            args.epochs,
+            model,
+            model_out,
+            optimizer,
+            scheduler
+        )
+
+    for epoch in tqdm(range(epoch, args.epochs)):
         model.train()
         count = 0
         training_loss = 0.0
@@ -221,7 +238,7 @@ def main():
         writer.add_scalar('Top-5 Accuracy/valid', validation_5_accuracy, epoch)
         print_values('validation', validation_loss, validation_accuracy, validation_5_accuracy)
         scheduler.step()
-        checkpoint(model, epoch, args.checkpoint_dir, args.model_name)
+        checkpoint(model, model_out, optimizer, scheduler, epoch, args.checkpoint_dir, args.model_name)
 
 
 if __name__ == '__main__':

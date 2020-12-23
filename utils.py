@@ -56,7 +56,32 @@ def accuracy(output, target, k):
     return np.asarray(np.any(argsorted_y.T == target, axis=0).sum(dtype='f'))
 
 
-def checkpoint(model, epoch, directory, name):
+def checkpoint(model, model_out, optimizer, scheduler, epoch, directory, name):
     if not os.path.exists(directory):
         os.makedirs(directory)
-    torch.save(model.state_dict(), os.path.join(directory, f'{name}_{epoch:04d}.pt'))
+    torch.save(
+        {
+            'model': model.state_dict(),
+            'model_out': model_out.state_dict(),
+            'optimizer': optimizer.state_dict(),
+            'scheduler': scheduler.state_dict()
+         },
+        os.path.join(directory, f'{name}_{epoch:04d}.pt')
+    )
+
+
+def load_checkpoint(directory, name, n_epochs, model, model_out, optimizer, scheduler):
+    path = None
+    epoch = 0
+    for epoch in reversed(range(n_epochs)):
+        path = os.path.join(directory, f'{name}_{epoch:04d}.pt')
+        if os.path.exists(path):
+            break
+    if path is not None:
+        return None
+    di = torch.load(path)
+    model.load_state_dict(di['model'])
+    model_out.load_state_dict(di['model_out'])
+    optimizer.load_state_dict(di['optimizer'])
+    scheduler.load_state_dict(di['scheduler'])
+    return model, model_out, optimizer, scheduler, epoch
