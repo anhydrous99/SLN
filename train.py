@@ -5,7 +5,7 @@ import torch.nn as nn
 from model import SlowFast
 from dataset import VideoDataset
 from torch.optim.lr_scheduler import StepLR
-from utils import isfloat, print_values, accuracy, checkpoint, load_checkpoint
+from utils import isfloat, print_values, accuracy, checkpoint, load_checkpoint, load_pretrained
 from torch.utils.data import DataLoader
 from transforms import RandomResizeVideo
 from torchvision.transforms import Compose
@@ -41,6 +41,11 @@ def main():
         default='linear'
     )
     parser.add_argument(
+        '--loss',
+        help='The loss type, (crossentropy, ...)',
+        default='crossentropy'
+    )
+    parser.add_argument(
         '--tensorboard_dir',
         help='Path to tensorboard logging',
         default='./runs/'
@@ -64,7 +69,7 @@ def main():
         help='Number of concurrent DataLoaders'
     )
     parser.add_argument(
-        '--model_save',
+        '--model_path',
         default='./model/',
         help='Directory to save model'
     )
@@ -81,19 +86,8 @@ def main():
         help='The number of side input size'
     )
     parser.add_argument(
-        '-c',
-        '--checkpoint_dir',
-        default='./model/',
-        help='Path to saved checkpoint models'
-    )
-    parser.add_argument(
-        '--pretrained',
+        '--pretrained_path',
         help='Path to pretrained model'
-    )
-    parser.add_argument(
-        '--load_checkpoint',
-        help='To load checkpoint',
-        action='store_true'
     )
     args = parser.parse_args()
     video_path = args.video_path
@@ -108,9 +102,7 @@ def main():
         validation = args.validation
 
     writer = SummaryWriter(os.path.join(args.tensorboard_dir, args.model_name))
-    device = torch.device('cpu')
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     print('Loading Dataset')
     train_transforms = Compose([
@@ -138,8 +130,6 @@ def main():
     print('Load Model')
     epoch = 0
     model = SlowFast().to(device)
-    if args.pretrained is not None:
-        model.load_state_dict(torch.load(args.pretrained))
 
     if args.model_output == 'linear':
         model_out = nn.Linear(2304, train_dataset.num_classes())
@@ -150,11 +140,16 @@ def main():
     optimizer = torch.optim.SGD(list(model.parameters()) + list(model_out.parameters()), lr=0.005, momentum=0.9,
                                 weight_decay=1e-4)
     scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
-    criterion = nn.CrossEntropyLoss()
+    if args.loss == 'crossentropy':
+        criterion = nn.CrossEntropyLoss()
+    else:
+        raise ValueError('Invalid loss')
 
-    if args.load_checkpoint:
+    if args.pretrained_path:
+        model = load_pretrained(args.pretrained_path, model)
+    if args.model_path and os.path.exists(args.model_path) and os.path.isdir(args.model_path):
         model, model_out, optimizer, scheduler, epoch = load_checkpoint(
-            args.checkpoint_dir,
+            args.model_path,
             args.model_name,
             args.epochs,
             model,

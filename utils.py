@@ -84,3 +84,11 @@ def load_checkpoint(directory, name, n_epochs, model, model_out, optimizer, sche
     optimizer.load_state_dict(di['optimizer'])
     scheduler.load_state_dict(di['scheduler'])
     return model, model_out, optimizer, scheduler, epoch + 1
+
+
+def load_pretrained(path, model):
+    if not os.path.exists(path) and not os.path.isfile(path):
+        raise FileNotFoundError(f'{path} does not exist or is not a file')
+    di = torch.load(path)
+    model.load_state_dict(di['model'])
+    return model
