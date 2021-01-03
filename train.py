@@ -234,7 +234,7 @@ def main():
         writer.add_scalar('Top-5 Accuracy/valid', validation_5_accuracy, epoch)
         print_values('validation', validation_loss, validation_accuracy, validation_5_accuracy)
         scheduler.step()
-        checkpoint(model, model_out, optimizer, scheduler, epoch, args.checkpoint_dir, args.model_name)
+        checkpoint(model, model_out, optimizer, scheduler, epoch, args.model_path, args.model_name)
 
 
 if __name__ == '__main__':
